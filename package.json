@@ -1,16 +1,15 @@
 {
-  "name": "node-sass-ast",
+  "name": "file-importer",
   "version": "0.0.0",
-  "description": "Assembler for deeply-nested Sass abstract syntax trees.",
+  "description": "@import statements for any kind of text file.",
   "main": "index.js",
   "directories": {},
   "scripts": {
     "test": "node ./test/mocha.js"
   },
   "author": "Greg MacWilliam",
-  "license": "ISC",
+  "license": "MIT",
   "dependencies": {
-    "gonzales-pe": "^3.0.0-29",
     "node-dir": "^0.1.8"
   },
   "devDependencies": {

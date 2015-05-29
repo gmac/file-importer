@@ -8,6 +8,7 @@ var dir = require('node-dir');
  * @param { string } data the string data of the file.
  */
 function File(opts) {
+  this.extensions = ['.scss'];
   this.dir = opts.dir || process.cwd();
   this.file = opts.file || './';
   this.data = opts.data || null;
@@ -66,164 +67,172 @@ File.prototype = {
   render: function(done) {
     var self = this;
 
+    function complete() {
+      done(null, self);
+    }
+
     // File needs data loaded:
     if (!this.isLoaded()) {
-      resolveFile(self, function(err, files) {
+      self.load(function(err) {
         if (err) throw err;
-
-        // Render all loaded files:
-        for (var i=0; i < files.length; i++) {
-          files[i].render(next);
-        }
-
-        function next(err, file) {
-          if (err) throw err;
-
-          var data = '';
-          for (var i=0; i < files.length; i++) {
-            if (!files[i].isParsed()) return;
-            data += files[i].data + '\n';
-          }
-
-          self.data = data;
-          parseFile(self, complete);
-        }
+        self.parse(complete);
       });
     }
     // File data needs to be parsed:
     else if (!this.isParsed()) {
-      parseFile(self, complete);
+      self.parse(complete);
     }
     // File is ready to go:
     else {
       complete();
     }
 
-    function complete() {
-      done(null, self);
+    return this;
+  },
+
+  /**
+   * Resolves file data based on its list of lookup paths.
+   * Each lookup path is accessed until a file is found, or options are exhausted.
+   * @param { File } file the File object to resolve lookup paths on.
+   * @param { Function } done the fn to invoke upon completion. Invoked with (err, files).
+   * @param { Number } index for internal use only. Advances recursive file access attempts.
+   */
+  load: function(done, index) {
+    if (index === undefined) index = 0;
+
+    var self = this;
+    var lookupFile = self.lookups[index];
+    var loadedFiles = [];
+
+    if (!lookupFile) {
+      return done(new Error('Import "'+ self.file +'" could not be resolved.'));
     }
 
-    return this;
-  }
-};
+    fs.lstat(lookupFile, function(err, stats) {
+      // Error:
+      if (err) {
+        if (err.code === 'ENOENT')
+          return self.load(done, index+1);
+        else
+          throw err;
+      }
 
-/**
- * Resolves file data based on its list of lookup paths.
- * Each lookup path is accessed until a file is found, or options are exhausted.
- * @param { File } file the File object to resolve lookup paths on.
- * @param { Function } done the fn to invoke upon completion. Invoked with (err, files).
- * @param { Number } index for internal use only. Advances recursive file access attempts.
- */
-function resolveFile(file, done, index) {
-  if (index === undefined) index = 0;
+      // Directory:
+      else if (stats.isDirectory()) {
+        dir.readFiles(lookupFile, {
+          recursive: false,
+          match: new RegExp( self.extensions.map(function(ext) { return ext + '$'; }).join('|') ),
+          exclude: /^\./
+        },
+        function(err, data, filename, next) {
+          if (err) throw err;
+          addFile(filename, data);
+          next();
+        },
+        function(err, filenames) {
+          if (err) throw err;
+          processFile();
+        });
+      }
 
-  var lookupFile = file.lookups[index];
+      // File:
+      else if (stats.isFile()) {
+        fs.readFile(lookupFile, function(err, data) {
+          if (err) throw err;
+          addFile(lookupFile, data.toString('utf-8'));
+          processFile();
+        });
+      }
+    });
 
-  if (!lookupFile) {
-    return done(new Error('Import "'+ file.file +'" could not be resolved.'));
-  }
-
-  fs.lstat(lookupFile, function(err, stats) {
-    var files = [];
-
-    function queue(filepath, data) {
+    function addFile(filepath, data) {
       var meta = path.parse(filepath);
-      files.push(new File({
-        includePaths: file.includePaths,
+      loadedFiles.push(new File({
+        includePaths: self.includePaths,
         dir: meta.dir,
         file: meta.base,
         data: data
       }));
     }
+  
+    function processFile() {
+      // Render all loaded files:
+      for (var i=0; i < loadedFiles.length; i++) {
+        loadedFiles[i].render(next);
+      }
 
-    // Error:
-    if (err) {
-      if (err.code === 'ENOENT')
-        return resolveFile(file, done, index+1);
-    }
-
-    // Directory:
-    else if (stats.isDirectory()) {
-      dir.readFiles(lookupFile, {
-        recursive: false,
-        match: /.scss$/,
-        exclude: /^\./
-      },
-      function(err, data, filename, next) {
+      function next(err, file) {
         if (err) throw err;
-        queue(filename, data);
-        next();
-      },
-      function(err, filenames) {
-        if (err) throw err;
-        done(null, files);
-      });
+
+        var data = '';
+        for (var i=0; i < loadedFiles.length; i++) {
+          if (!loadedFiles[i].isParsed()) return;
+          data += loadedFiles[i].data + '\n';
+        }
+
+        self.data = data;
+        done(null, self);
+      }
+    }
+  },
+
+  /**
+   * Parses all @import statements within a file.
+   * Each import creates a new file to load and render into the source.
+   * @param { File } file the File object to parse data for.
+   * @param { Function } done the fn to invoke upon completion. Invoked with (err, file).
+   */
+  parse: function(done) {
+    var self = this;
+    var imports = {};
+
+    // Parse out all `@import 'filename';` statements:
+    // TODO: use AST to handle this work.
+    self.data = self.data.replace(/@import\s+?['"]([^'"]+)['"];?/g, function(match, filepath) {
+      if (!imports[filepath]) {
+        imports[filepath] = new File({
+          includePaths: self.includePaths,
+          dir: self.dir,
+          file: filepath
+        }).render(next);
+      }
+      return '__'+ filepath +'__';
+    });
+
+    // Continuation handler, invoked upon every imported file render:
+    function next(err, importFile) {
+      if (err) throw err;
+
+      if (importFile) {
+        // Swap in imported file data for import tokens:
+        self.data = self.data.replace(new RegExp('__'+ importFile.file +'__', 'g'), importFile.data);
+      }
+
+      for (var i in imports) {
+        // Abort if there are any pending imports:
+        if (imports.hasOwnProperty(i) && !imports[i].isParsed()) return;
+      }
+
+      // Mark file as parsed and roll on:
+      self._parsed = true;
+      done(null, self);
     }
 
-    // File:
-    else if (stats.isFile()) {
-      fs.readFile(lookupFile, function(err, data) {
-        if (err) throw err;
-        queue(lookupFile, data.toString('utf-8'));
-        done(null, files);
-      });
-    }
-
-  });
-}
-
-/**
- * Parses all @import statements within a file.
- * Each import creates a new file to load and render into the source.
- * @param { File } file the File object to parse data for.
- * @param { Function } done the fn to invoke upon completion. Invoked with (err, file).
- */
-function parseFile(file, done) {
-  var imports = {};
-
-  // Parse out all `@import 'filename';` statements:
-  // TODO: use AST to handle this work.
-  file.data = file.data.replace(/@import\s+?['"]([^'"]+)['"];?/g, function(match, filepath) {
-    if (!imports[filepath]) {
-      imports[filepath] = new File({
-        includePaths: file.includePaths,
-        dir: file.dir,
-        file: filepath
-      }).render(next);
-    }
-    return '__'+ filepath +'__';
-  });
-
-  // Continuation handler, invoked upon every imported file render:
-  function next(err, importFile) {
-    if (err) throw err;
-
-    if (importFile) {
-      // Swap in imported file data for import tokens:
-      file.data = file.data.replace(new RegExp('__'+ importFile.file +'__', 'g'), importFile.data);
-    }
-
-    for (var i in imports) {
-      // Abort if there are any pending imports:
-      if (imports.hasOwnProperty(i) && !imports[i].isParsed()) return;
-    }
-
-    // Mark file as parsed and roll on:
-    file._parsed = true;
-    done(null, file);
+    // Invoke continuation immedaitely:
+    // This assumes we might not need to import anything,
+    // in which case we're already set to continue.
+    next();
   }
+};
 
-  // Invoke continuation immedaitely:
-  // This assumes we might not need to import anything,
-  // in which case we're already set to continue.
-  next();
-}
-
-module.exports.parse = function(opts, done) {
+File.parse = function(opts, done) {
   new File(opts).render(function(err, file) {
     done(err, file.data);
   });
 };
+
+module.exports = File;
+
 
 
 /*

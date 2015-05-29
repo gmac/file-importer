@@ -1,8 +1,8 @@
-# node-sass-ast
+# file-importer
 
 [pre-release]
 
-An assembler for deeply-nested Sass abstract syntax trees (ASTs). This tool is a wrapper around the fabulous [gonzales-pe](https://github.com/tonyganch/gonzales-pe) lexical analysis library, with extended support for resolving deeply-nested `@import` statements.
+Use `@import` statements to assemble any kind of text-based file.
 
 ## What it Does
 

@@ -1,9 +1,9 @@
 var path = require('path');
 var assert = require('assert');
-var sasstree = require('../index');
+var fileImporter = require('../index');
 
 function parse(file, handler) {
-  sasstree.parse({
+  fileImporter.parse({
     dir: path.resolve(__dirname, 'lib'),
     file: file
   }, handler);
