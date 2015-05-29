@@ -18,6 +18,7 @@ npm install file-importer --save-dev
 ## Usage
 
 ```javascript
+var path - require('path');
 var fileImporter = require('file-importer');
 
 fileImporter.parse({
@@ -46,3 +47,11 @@ fileImporter.parse({
 * **`includePaths`**: Array of base paths to search while perform file lookups. These should be absolute directory paths, or else relative to `process.cwd()` (or the provided `cwd` option).
 
 * **`extensions`**: Array of file extensions to search while performing lookups. Set as `['.scss']` by default (for standard Sass import behavior). You could set this to, say, `['.txt']` to import a tree of plain text files.
+
+## Tests
+
+To run tests:
+
+```
+npm test
+```
