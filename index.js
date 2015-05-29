@@ -8,26 +8,23 @@ var dir = require('node-dir');
  * @param { string } data the string data of the file.
  */
 function File(opts) {
-  this.extensions = ['.scss'];
+  this.extensions = Array.isArray(opts.extensions) ? opts.extensions : ['.scss'];
+  this.includePaths = Array.isArray(opts.includePaths) ? opts.includePaths : [];
   this.dir = opts.dir || process.cwd();
   this.file = opts.file || './';
   this.data = opts.data || null;
-  this.meta = path.parse(this.file);
   this._parsed = false;
   this.lookups = [];
 
-  // Forcibly format includePaths as an array:
-  if (!Array.isArray(opts.includePaths))
-    opts.includePaths = [];
-
   // Map includePaths into absolute paths:
-  this.includePaths = opts.includePaths.map(function(include) {
+  this.includePaths = this.includePaths.map(function(include) {
     return path.isAbsolute(include) ? include : path.join(process.cwd(), include);
   });
 
   // Assemble complete list of base lookup paths:
   // (this is the file's given cwd, and included search paths)
   var basePaths = [this.dir].concat(this.includePaths);
+  var meta = path.parse(this.file);
 
   // Build lookup paths upon all base paths:
   for (var i=0; i < basePaths.length; i++) {
@@ -38,15 +35,17 @@ function File(opts) {
     if (!path.isAbsolute(this.file))
       this.lookups.push(path.join(basePath, this.file));
 
-    // Given filename + extension:
-    // ex: "lib/file" => "/base/lib/file.scss"
-    if (!this.meta.ext)
-      this.lookups.push(path.join(basePath, this.meta.dir, this.meta.name + '.scss'));
+    for (var j=0; j < this.extensions.length; j++) {
+      // Given filename + extension:
+      // ex: "lib/file" => "/base/lib/file.scss"
+      if (!meta.ext)
+        this.lookups.push(path.join(basePath, meta.dir, meta.name + this.extensions[j]));
 
-    // Prefixed filename + extension:
-    // ex: "lib/file" => "/base/lib/_file.scss"
-    if (this.meta.name[0] !== '_')
-      this.lookups.push(path.join(basePath, this.meta.dir, '_'+ this.meta.name + '.scss'));
+      // Prefixed filename + extension:
+      // ex: "lib/file" => "/base/lib/_file.scss"
+      if (meta.name[0] !== '_')
+        this.lookups.push(path.join(basePath, meta.dir, '_'+ meta.name + this.extensions[j]));
+    }
   }
 }
 
@@ -93,14 +92,11 @@ File.prototype = {
   /**
    * Resolves file data based on its list of lookup paths.
    * Each lookup path is accessed until a file is found, or options are exhausted.
-   * @param { File } file the File object to resolve lookup paths on.
    * @param { Function } done the fn to invoke upon completion. Invoked with (err, files).
-   * @param { Number } index for internal use only. Advances recursive file access attempts.
    */
-  load: function(done, index) {
-    if (index === undefined) index = 0;
-
+  load: function(done) {
     var self = this;
+    var index = arguments[1] || 0;
     var lookupFile = self.lookups[index];
     var loadedFiles = [];
 
@@ -147,8 +143,7 @@ File.prototype = {
 
     function addFile(filepath, data) {
       var meta = path.parse(filepath);
-      loadedFiles.push(new File({
-        includePaths: self.includePaths,
+      loadedFiles.push(self.fork({
         dir: meta.dir,
         file: meta.base,
         data: data
@@ -179,7 +174,6 @@ File.prototype = {
   /**
    * Parses all @import statements within a file.
    * Each import creates a new file to load and render into the source.
-   * @param { File } file the File object to parse data for.
    * @param { Function } done the fn to invoke upon completion. Invoked with (err, file).
    */
   parse: function(done) {
@@ -190,22 +184,18 @@ File.prototype = {
     // TODO: use AST to handle this work.
     self.data = self.data.replace(/@import\s+?['"]([^'"]+)['"];?/g, function(match, filepath) {
       if (!imports[filepath]) {
-        imports[filepath] = new File({
-          includePaths: self.includePaths,
-          dir: self.dir,
-          file: filepath
-        }).render(next);
+        imports[filepath] = self.fork({file: filepath}).render(next);
       }
       return '__'+ filepath +'__';
     });
 
     // Continuation handler, invoked upon every imported file render:
-    function next(err, importFile) {
+    function next(err, file) {
       if (err) throw err;
 
-      if (importFile) {
+      if (file) {
         // Swap in imported file data for import tokens:
-        self.data = self.data.replace(new RegExp('__'+ importFile.file +'__', 'g'), importFile.data);
+        self.data = self.data.replace(new RegExp('__'+ file.file +'__', 'g'), file.data);
       }
 
       for (var i in imports) {
@@ -222,6 +212,28 @@ File.prototype = {
     // This assumes we might not need to import anything,
     // in which case we're already set to continue.
     next();
+    return this;
+  },
+
+  /**
+   * Forks a new file from the current file:
+   * New file inherits all parent configuration,
+   * with any provided overrides applied.
+   * @param { Object } opts an object of override settings.
+   * @return { File } new file object with forked config.
+   */
+  fork: function(opts) {
+    var config = {
+      extensions: this.extensions,
+      includePaths: this.includePaths,
+      dir: this.dir
+    };
+
+    for (var i in opts) {
+      if (opts.hasOwnProperty(i)) config[i] = opts[i];
+    }
+
+    return new File(config);
   }
 };
 
@@ -232,16 +244,3 @@ File.parse = function(opts, done) {
 };
 
 module.exports = File;
-
-
-
-/*
-go({
-    file: 'test/lib/index',
-    includePaths: ['./test/base/']
-  },
-  function(err, data) {
-    if (err) throw err;
-    console.log(data);
-  });
-  */
