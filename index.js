@@ -219,7 +219,7 @@ function parseFile(file, done) {
   next();
 }
 
-module.exports = function(opts, done) {
+module.exports.parse = function(opts, done) {
   new File(opts).render(function(err, file) {
     done(err, file.data);
   });

@@ -3,16 +3,17 @@
   "version": "0.0.0",
   "description": "Assembler for deeply-nested Sass abstract syntax trees.",
   "main": "index.js",
-  "directories": {
-    "test": "test"
-  },
+  "directories": {},
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node ./test/mocha.js"
   },
   "author": "Greg MacWilliam",
   "license": "ISC",
   "dependencies": {
     "gonzales-pe": "^3.0.0-29",
     "node-dir": "^0.1.8"
+  },
+  "devDependencies": {
+    "mocha": "^2.2.5"
   }
 }
