@@ -48,6 +48,17 @@ fileImporter.parse({
 
 * **`extensions`**: Array of file extensions to search while performing lookups. Set as `['.scss']` by default (for standard Sass import behavior). You could set this to, say, `['.txt']` to import a tree of plain text files.
 
+## Import Rules
+
+Sass-style imports are fairly blunt instruments. There's not a lot of magic here:
+
+**To parse `lib/sfoo`:**
+
+1. Look for `<cwd>/lib/sfoo`. If it's a directory, import all contents.
+2. Look for `<cwd>/lib/sfoo.scss`. FileImporter does this with all provided extensions.
+3. Look for `<cwd>/lib/_sfoo.scss`. FileImporter does this with all provided extensions.
+4. Perform steps 1-3 swapping `<cwd>` for each of `includePaths`.
+
 ## Test
 
 To run tests:
