@@ -1,14 +1,12 @@
 # file-importer
 
-[pre-release]
+An `@import` mapper for assembling Sass file trees and/or other text-based files into flat files. This is useful for assembling a raw Sass codebase into an aggregated source, or using the Sass `@import` workflow as an aggregator for other filetypes.
 
-An `@import` mapper for assembling Sass file trees and/or other text-based file formats into flat files. This is useful for assembling a raw Sass codebase into an aggregated source, or using the Sass `@import` workflow as an aggregator for other filetypes.
+This is a small standalone library with no dependencies on an actual Sass engine. All files are read, parsed for imports, and assembled entirely as plain text. File access and compilation is performed directly via Node, and `@import` statements are parsed using regular expressions.
 
-This is a small stand-alone library with zero dependence on an actual Sass engine. All files are read, parsed for imports, and assembled entirely using plain text. File access and compilation is performed directly via Node, and `@import` statements are parsed using regular expressions.
+**So, I can assemble my Sass source tree into a flat file?**
 
-**So, it can assemble my Sass source tree into a flat file?**
-
-Yes. However, be mindful that imports are resolved through plain text, therefore the assembler will not be aware of `@import` statements that have been commented out. For a more intelligent parsing of Sass, combine this with [gonzales-pe](link-here).
+Yes. However, be mindful that imports are resolved via plain text, therefore the assembler will still find `@import` statements within Sass comments. For intelligent parsing of Sass files, combine the importer with [gonzales-pe](link-here).
 
 
 ## Install
