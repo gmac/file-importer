@@ -4,7 +4,7 @@ var fileImporter = require('../index');
 
 function parse(file, handler) {
   fileImporter.parse({
-    dir: path.resolve(__dirname, 'lib'),
+    cwd: path.resolve(__dirname, 'lib'),
     file: file
   }, handler);
 }
@@ -54,6 +54,17 @@ describe('file resolution', function() {
 
   it ('resolves a requested directory into its complete ".scss" file contents.', function(done) {
     parse('resolution/group', function(err, data) {
+      assert.contain(data, '.group_a');
+      assert.contain(data, '.group_b');
+      done();
+    });
+  });
+
+  it ('resolves contents of a provided data string.', function(done) {
+    fileImporter.parse({
+      cwd: path.resolve(__dirname, 'lib'),
+      data: '@import "resolution/group";'
+    }, function(err, data) {
       assert.contain(data, '.group_a');
       assert.contain(data, '.group_b');
       done();

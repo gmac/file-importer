@@ -10,7 +10,7 @@ var dir = require('node-dir');
 function File(opts) {
   this.extensions = Array.isArray(opts.extensions) ? opts.extensions : ['.scss'];
   this.includePaths = Array.isArray(opts.includePaths) ? opts.includePaths : [];
-  this.dir = opts.dir || process.cwd();
+  this.cwd = opts.cwd || process.cwd();
   this.file = opts.file || './';
   this.data = opts.data || null;
   this._parsed = false;
@@ -18,12 +18,12 @@ function File(opts) {
 
   // Map includePaths into absolute paths:
   this.includePaths = this.includePaths.map(function(include) {
-    return path.isAbsolute(include) ? include : path.join(process.cwd(), include);
-  });
+    return path.isAbsolute(include) ? include : path.join(this.cwd, include);
+  }.bind(this));
 
   // Assemble complete list of base lookup paths:
   // (this is the file's given cwd, and included search paths)
-  var basePaths = [this.dir].concat(this.includePaths);
+  var basePaths = [this.cwd].concat(this.includePaths);
   var meta = path.parse(this.file);
 
   // Build lookup paths upon all base paths:
@@ -144,7 +144,7 @@ File.prototype = {
     function addFile(filepath, data) {
       var meta = path.parse(filepath);
       loadedFiles.push(self.fork({
-        dir: meta.dir,
+        cwd: meta.dir,
         file: meta.base,
         data: data
       }));
@@ -226,7 +226,7 @@ File.prototype = {
     var config = {
       extensions: this.extensions,
       includePaths: this.includePaths,
-      dir: this.dir
+      cwd: this.cwd
     };
 
     for (var i in opts) {

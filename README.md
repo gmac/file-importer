@@ -19,7 +19,7 @@ npm install file-importer --save-dev
 
 ## Usage
 
-```
+```javascript
 var fileImporter = require('file-importer');
 
 fileImporter.parse({

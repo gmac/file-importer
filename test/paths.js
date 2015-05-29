@@ -5,7 +5,7 @@ var fileImporter = require('../index');
 function parse(file, handler) {
   fileImporter.parse({
     includePaths: [path.resolve(__dirname, 'lib/base')],
-    dir: path.resolve(__dirname, 'lib'),
+    cwd: path.resolve(__dirname, 'lib'),
     file: file
   }, handler);
 }
