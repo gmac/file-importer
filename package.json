@@ -1,7 +1,7 @@
 {
   "name": "file-importer",
-  "version": "0.0.0",
-  "description": "@import statements for any kind of text file.",
+  "version": "0.0.1",
+  "description": "Assembler for source file trees using Sass-style @import statements.",
   "main": "index.js",
   "directories": {},
   "scripts": {
