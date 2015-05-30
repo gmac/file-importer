@@ -1,13 +1,18 @@
 {
   "name": "file-importer",
   "version": "0.0.1",
-  "description": "Assembler for source file trees using Sass-style @import statements.",
+  "description": "Assembles source file trees using Sass-style @import statements.",
   "main": "index.js",
   "directories": {},
   "scripts": {
     "test": "node ./test/mocha.js"
   },
   "author": "Greg MacWilliam",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gmac/file-importer"
+  },
+  "github": "https://github.com/gmac/file-importer",
   "license": "MIT",
   "dependencies": {
     "node-dir": "^0.1.8"

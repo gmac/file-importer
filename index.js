@@ -3,9 +3,12 @@ var path = require('path');
 var dir = require('node-dir');
 
 /**
- * A stub file object for representing a loaded file.
- * @param { string } filepath the file's system path.
- * @param { string } data the string data of the file.
+ * A virtual file object for managing loaded file.
+ * @option { String } file: filepath the file's system path.
+ * @option { String } data: string data for the file contents.
+ * @option { String } cwd: optional path to use as the file's CWD.
+ * @option { Array } includePaths: optional array of other base search paths.
+ * @option { Array } extensions: optional array of file extensions to resolve.
  */
 function File(opts) {
   this.extensions = Array.isArray(opts.extensions) ? opts.extensions : ['.scss'];
@@ -62,7 +65,8 @@ File.prototype = {
     return this.isLoaded() && this._parsed;
   },
 
-  // Renders the file contents, and returns the result:
+  // Renders the file contents:
+  // @param { Function } done the fn to invoke upon completion. Invoked with (err, file).
   render: function(done) {
     var self = this;
 
@@ -90,9 +94,9 @@ File.prototype = {
   },
 
   /**
-   * Resolves file data based on its list of lookup paths.
+   * Resolves file data based upon the file's array of lookup paths.
    * Each lookup path is accessed until a file is found, or options are exhausted.
-   * @param { Function } done the fn to invoke upon completion. Invoked with (err, files).
+   * @param { Function } done the fn to invoke upon completion. Invoked with (err, file).
    */
   load: function(done) {
     var self = this;
@@ -141,6 +145,8 @@ File.prototype = {
       }
     });
 
+    // Queues a new file within the array of loaded files:
+    // Loaded files localize their own CWD for relative imports.
     function addFile(filepath, data) {
       var meta = path.parse(filepath);
       loadedFiles.push(self.fork({
@@ -149,25 +155,40 @@ File.prototype = {
         data: data
       }));
     }
-  
+    
+    // Processes file contents:
+    // Called upon completing load of all accessed files.
+    // Files are now rendered individually, then handed off to seed the parent.
     function processFile() {
       // Render all loaded files:
       for (var i=0; i < loadedFiles.length; i++) {
         loadedFiles[i].render(next);
       }
 
+      // Callback on completion of each render:
+      // We'll look through all files to see if everything is ready to go.
       function next(err, file) {
         if (err) throw err;
 
-        var data = '';
         for (var i=0; i < loadedFiles.length; i++) {
           if (!loadedFiles[i].isParsed()) return;
-          data += loadedFiles[i].data + '\n';
         }
 
-        self.data = data;
+        self.seed(loadedFiles);
         done(null, self);
       }
+    }
+  },
+
+  /**
+   * Seeds the file with new data.
+   * Used to resolve a load sequence where many files may seed a single parent.
+   * @param { Array } files an array of File objects to seed file data from.
+   */
+  seed: function(files) {
+    this.data = '';
+    for (var i=0; i < files.length; i++) {
+      this.data += files[i].data + '\n';
     }
   },
 
