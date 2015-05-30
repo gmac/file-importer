@@ -174,22 +174,23 @@ File.prototype = {
           if (!loadedFiles[i].isParsed()) return;
         }
 
-        self.seed(loadedFiles);
+        self.compile(loadedFiles);
         done(null, self);
       }
     }
   },
 
   /**
-   * Seeds the file with new data.
-   * Used to resolve a load sequence where many files may seed a single parent.
+   * Compiles the file with all loaded data.
+   * Resolves situations where many files compile into a single parent.
    * @param { Array } files an array of File objects to seed file data from.
    */
-  seed: function(files) {
+  compile: function(files) {
     this.data = '';
     for (var i=0; i < files.length; i++) {
       this.data += files[i].data + '\n';
     }
+    return this;
   },
 
   /**
