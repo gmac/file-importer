@@ -24,6 +24,11 @@ function File(opts) {
     return path.isAbsolute(include) ? include : path.join(this.cwd, include);
   }.bind(this));
 
+  if (path.isAbsolute(this.file)) {
+    this.lookups.push(this.file);
+    return this;
+  }
+
   // Assemble complete list of base lookup paths:
   // (this is the file's given cwd, and included search paths)
   var basePaths = [this.cwd].concat(this.includePaths);
@@ -35,8 +40,7 @@ function File(opts) {
 
     // Given filename:
     // ex: "lib/file" => "/base/lib/file"
-    if (!path.isAbsolute(this.file))
-      this.lookups.push(path.join(basePath, this.file));
+    this.lookups.push(path.join(basePath, this.file));
 
     for (var j=0; j < this.extensions.length; j++) {
       // Given filename + extension:
