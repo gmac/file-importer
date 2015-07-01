@@ -38,10 +38,6 @@ function File(opts) {
   for (var i=0; i < basePaths.length; i++) {
     var basePath = basePaths[i];
 
-    // Given filename:
-    // ex: "lib/file" => "/base/lib/file"
-    this.lookups.push(path.join(basePath, this.file));
-
     for (var j=0; j < this.extensions.length; j++) {
       // Given filename + extension:
       // ex: "lib/file" => "/base/lib/file.scss"
@@ -53,6 +49,10 @@ function File(opts) {
       if (meta.name[0] !== '_')
         this.lookups.push(path.join(basePath, meta.dir, '_'+ meta.name + this.extensions[j]));
     }
+
+    // Given filename:
+    // ex: "lib/file" => "/base/lib/file"
+    this.lookups.push(path.join(basePath, this.file));
   }
 }
 
