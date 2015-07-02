@@ -15,10 +15,17 @@ assert.doesNotContain = function(a, b) {
   }
 };
 
+assert.match = function(a, b) {
+  if (!b.test(a)) {
+    assert.fail(a, b, 'expected not match');
+  }
+};
+
 mocha.reporter('dot');
 mocha.addFile('test/resolution');
 mocha.addFile('test/imports');
 mocha.addFile('test/paths');
+mocha.addFile('test/scenarios');
 
 mocha.run(function(failures) {
   process.on('exit', function() {

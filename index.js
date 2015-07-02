@@ -9,15 +9,17 @@ var dir = require('node-dir');
  * @option { String } cwd: optional path to use as the file's CWD.
  * @option { Array } includePaths: optional array of other base search paths.
  * @option { Array } extensions: optional array of file extensions to resolve.
+ * @option { Array } branch: previous imports within the file tree (tracks recursion).
  */
 function File(opts) {
   this.extensions = Array.isArray(opts.extensions) ? opts.extensions : ['.scss'];
   this.includePaths = Array.isArray(opts.includePaths) ? opts.includePaths : [];
+  this.branch = opts.branch || [];
   this.cwd = opts.cwd || process.cwd();
   this.file = opts.file || './';
-  this.data = opts.data || null;
-  this._parsed = false;
+  this.data = (typeof opts.data === 'string') ? opts.data : null;
   this.lookups = [];
+  this._parsed = false;
 
   // Map includePaths into absolute paths:
   this.includePaths = this.includePaths.map(function(include) {
@@ -115,14 +117,19 @@ File.prototype = {
     fs.lstat(lookupFile, function(err, stats) {
       // Error:
       if (err) {
-        if (err.code === 'ENOENT')
-          return self.load(done, index+1);
-        else
-          throw err;
+        if (err.code === 'ENOENT') return self.load(done, index+1);
+        else throw err;
+      }
+
+      // Recursive file access:
+      if (self.branch.indexOf(lookupFile) != -1) {
+        throw 'Recursive import "'+ lookupFile +'" could not be resolved.';
+      } else {
+        self.branch.push(lookupFile);
       }
 
       // Directory:
-      else if (stats.isDirectory()) {
+      if (stats.isDirectory()) {
         dir.readFiles(lookupFile, {
           recursive: false,
           match: new RegExp( self.extensions.map(function(ext) { return ext + '$'; }).join('|') ),
@@ -250,6 +257,7 @@ File.prototype = {
    */
   fork: function(opts) {
     var config = {
+      branch: this.branch.slice(),
       extensions: this.extensions,
       includePaths: this.includePaths,
       cwd: this.cwd
