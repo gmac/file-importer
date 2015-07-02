@@ -10,6 +10,14 @@ function parse(file, handler) {
   }, handler);
 }
 
+function parseFile(file, handler) {
+  new fileImporter({
+    includePaths: [path.resolve(__dirname, 'lib/base')],
+    cwd: path.resolve(__dirname, 'lib'),
+    file: file
+  }).render(handler);
+}
+
 describe('@import path', function() {
   it ('includes locally-pathed file dependencies.', function(done) {
     parse('paths/index', function(err, data) {
@@ -43,4 +51,19 @@ describe('@import path', function() {
       done();
     });
   });
+
+  it ('resolves a file reference into an absolute file path.', function(done) {
+    parseFile('paths/index.scss', function(err, file) {
+      assert.equal(file.filepath, path.join(__dirname, 'lib/paths/index.scss'));
+      done();
+    });
+  });
+
+  it ('resolves a directory reference into an absolute file path.', function(done) {
+    parseFile('paths/path/path', function(err, file) {
+      assert.equal(file.filepath, path.join(__dirname, 'lib/paths/path/path'));
+      done();
+    });
+  });
+
 });

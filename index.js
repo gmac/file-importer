@@ -4,7 +4,7 @@ var dir = require('node-dir');
 
 /**
  * A virtual file object for managing loaded file.
- * @option { String } file: filepath the file's system path.
+ * @option { String } file: relative file reference.
  * @option { String } data: string data for the file contents.
  * @option { String } cwd: optional path to use as the file's CWD.
  * @option { Array } includePaths: optional array of other base search paths.
@@ -15,6 +15,7 @@ function File(opts) {
   this.extensions = Array.isArray(opts.extensions) ? opts.extensions : ['.scss'];
   this.includePaths = Array.isArray(opts.includePaths) ? opts.includePaths : [];
   this.branch = opts.branch || [];
+  this.filepath = opts.filepath || null;
   this.cwd = opts.cwd || process.cwd();
   this.file = opts.file || './';
   this.data = (typeof opts.data === 'string') ? opts.data : null;
@@ -26,6 +27,7 @@ function File(opts) {
     return path.isAbsolute(include) ? include : path.join(this.cwd, include);
   }.bind(this));
 
+  // Set absolute paths as a hard lookup:
   if (path.isAbsolute(this.file)) {
     this.lookups.push(this.file);
     return this;
@@ -126,6 +128,7 @@ File.prototype = {
         throw 'Recursive import "'+ lookupFile +'" could not be resolved.';
       } else {
         self.branch.push(lookupFile);
+        self.filepath = lookupFile;
       }
 
       // Directory:
@@ -163,6 +166,7 @@ File.prototype = {
       loadedFiles.push(self.fork({
         cwd: meta.dir,
         file: meta.base,
+        filepath: filepath,
         data: data
       }));
     }
