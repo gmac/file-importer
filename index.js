@@ -73,6 +73,8 @@ function File(opts) {
 }
 
 File.prototype = extend({}, EventEmitter.prototype, {
+  _extend: extend,
+  
   // Specifies if the file had been read:
   // (fulfilled once the file has been given data)
   isLoaded: function() {
@@ -157,7 +159,7 @@ File.prototype = extend({}, EventEmitter.prototype, {
         },
         function(err, filenames) {
           if (err) throw err;
-          processFile();
+          renderFile();
         });
       }
 
@@ -166,7 +168,7 @@ File.prototype = extend({}, EventEmitter.prototype, {
         fs.readFile(lookupFile, function(err, data) {
           if (err) throw err;
           addFile(lookupFile, data.toString('utf-8'));
-          processFile();
+          renderFile();
         });
       }
     });
@@ -175,23 +177,21 @@ File.prototype = extend({}, EventEmitter.prototype, {
     // Loaded files localize their own CWD for relative imports.
     function addFile(filepath, data) {
       var meta = path.parse(filepath);
+
       loadedFiles.push(self.fork({
         cwd: meta.dir,
         file: meta.base,
         filepath: filepath,
         data: data
       }));
+
+      self.root.emit('file', filepath);
     }
     
     // Processes file contents:
     // Called upon completing load of all accessed files.
     // Files are now rendered individually, then handed off to seed the parent.
-    function processFile() {
-      // Render all loaded files:
-      for (var i=0; i < loadedFiles.length; i++) {
-        loadedFiles[i].render(next);
-      }
-
+    function renderFile() {
       // Callback on completion of each render:
       // We'll look through all files to see if everything is ready to go.
       function next(err, file) {
@@ -203,6 +203,11 @@ File.prototype = extend({}, EventEmitter.prototype, {
 
         self.compile(loadedFiles);
         done(null, self);
+      }
+
+      // Render all loaded files:
+      for (var i=0; i < loadedFiles.length; i++) {
+        loadedFiles[i].render(next);
       }
     }
 
@@ -257,7 +262,6 @@ File.prototype = extend({}, EventEmitter.prototype, {
       // Mark file as parsed and roll on:
       self._parsed = true;
       done(null, self);
-      self.emit('end');
     }
 
     // Invoke continuation immedaitely:
@@ -287,7 +291,12 @@ File.prototype = extend({}, EventEmitter.prototype, {
 
 File.parse = function(opts, done) {
   return new File(opts).render(function(err, file) {
-    done(err, file.data);
+    // Callback:
+    if (typeof done === 'function') done(err, file.data);
+
+    // End event:
+    if (err) file.emit('error', err);
+    else file.emit('end', file.data);
   });
 };
 

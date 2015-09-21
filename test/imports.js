@@ -3,7 +3,7 @@ var assert = require('assert');
 var fileImporter = require('../index');
 
 function parse(file, handler) {
-  fileImporter.parse({
+  return fileImporter.parse({
     cwd: path.resolve(__dirname, 'lib'),
     file: file
   }, handler);
@@ -50,5 +50,17 @@ describe('@import statement', function() {
       assert.doesNotContain(data, '@import');
       done();
     });
+  });
+
+  it ('emits a reference to each imported file.', function(done) {
+    var files = [];
+    parse('imports/index')
+      .on('file', function(filename) {
+        files.push(filename);
+      })
+      .on('end', function() {
+        assert.equal(files.length, 7)
+        done();
+      });
   });
 });
