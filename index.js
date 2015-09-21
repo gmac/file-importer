@@ -1,6 +1,16 @@
 var fs = require('fs');
 var path = require('path');
+var EventEmitter = require('events').EventEmitter;
 var dir = require('node-dir');
+
+// Extend object properties onto base:
+function extend(base) {
+  for (var i = 1; i < arguments.length; i++){
+    var ext = arguments[i];
+    for (var key in ext) if (ext.hasOwnProperty(key)) base[key] = ext[key];
+  }
+  return base;
+}
 
 /**
  * A virtual file object for managing loaded file.
@@ -12,8 +22,10 @@ var dir = require('node-dir');
  * @option { Array } branch: previous imports within the file tree (tracks recursion).
  */
 function File(opts) {
+  EventEmitter.call(this);
   this.extensions = Array.isArray(opts.extensions) ? opts.extensions : ['.scss'];
   this.includePaths = Array.isArray(opts.includePaths) ? opts.includePaths : [];
+  this.root = opts.root || this;
   this.branch = opts.branch || [];
   this.filepath = opts.filepath || null;
   this.cwd = opts.cwd || process.cwd();
@@ -60,7 +72,7 @@ function File(opts) {
   }
 }
 
-File.prototype = {
+File.prototype = extend({}, EventEmitter.prototype, {
   // Specifies if the file had been read:
   // (fulfilled once the file has been given data)
   isLoaded: function() {
@@ -120,12 +132,12 @@ File.prototype = {
       // Error:
       if (err) {
         if (err.code === 'ENOENT') return self.load(done, index+1);
-        else throw err;
+        else return self.root.emit('error', err);
       }
 
       // Recursive file access:
       if (self.branch.indexOf(lookupFile) != -1) {
-        throw 'Recursive import "'+ lookupFile +'" could not be resolved.';
+        return self.root.emit('error', new Error('Recursive import "'+ lookupFile +'" could not be resolved.'));
       } else {
         self.branch.push(lookupFile);
         self.filepath = lookupFile;
@@ -193,6 +205,8 @@ File.prototype = {
         done(null, self);
       }
     }
+
+    return this;
   },
 
   /**
@@ -243,6 +257,7 @@ File.prototype = {
       // Mark file as parsed and roll on:
       self._parsed = true;
       done(null, self);
+      self.emit('end');
     }
 
     // Invoke continuation immedaitely:
@@ -260,23 +275,18 @@ File.prototype = {
    * @return { File } new file object with forked config.
    */
   fork: function(opts) {
-    var config = {
+    return new File(extend({
       branch: this.branch.slice(),
       extensions: this.extensions,
       includePaths: this.includePaths,
-      cwd: this.cwd
-    };
-
-    for (var i in opts) {
-      if (opts.hasOwnProperty(i)) config[i] = opts[i];
-    }
-
-    return new File(config);
+      cwd: this.cwd,
+      root: this.root
+    }, opts));
   }
-};
+});
 
 File.parse = function(opts, done) {
-  new File(opts).render(function(err, file) {
+  return new File(opts).render(function(err, file) {
     done(err, file.data);
   });
 };
